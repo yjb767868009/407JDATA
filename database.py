@@ -54,6 +54,24 @@ class Datebase(object):
         for row in month_list:
             csv_writer.writerow(row)
 
+    #将评论数量转换成数字
+    def convert_comment(number):
+        if number <= 1:
+            return 1
+        elif number <= 10:
+            return 2
+        elif number <= 50:
+            return 3
+        else:
+            return 4
+
+    #有无差评，1表示有
+    def has_bad_comment(number):
+        if (number > 0):
+            return 1
+        else:
+            return 0
+
     # 将行为按用户id划分第二版
     def user_div2(self):
         user_name = 600000
@@ -251,30 +269,52 @@ class Datebase(object):
             pickle.dump(actions, open(dump_path, 'w'))
         return actions
 
-    def get_comments_product_feat(self, start_date, end_date):
-        action_path = 'comments_accumulate_%s_%s.pkl' % (start_date, end_date)
-        dump_path = os.path.join(self.cache_path, action_path)
-        if os.path.exists(dump_path):
-            comments = pickle.load(open(dump_path))
-        else:
-            comments = pd.read_csv(self.comment_path)
-            comment_date_end = end_date
-            comment_date_begin = self.comment_date[0]
-            for date in reversed(self.comment_date):
-                if date < comment_date_end:
-                    comment_date_begin = date
-                    break
-            comments = comments[(comments.dt >= comment_date_begin) & (comments.dt < comment_date_end)]
-            comments['comments'] = comments['comments'].map()
-            df = pd.get_dummies(comments['comments'], prefix='comments')
-            comments = pd.concat([comments, df], axis=1)  # type: pd.DataFrame
-            # del comments['dt']
-            # del comments['comment_num']
-            comments = comments[
-                ['sku_id', 'has_bad_comment', 'bad_comment_rate', 'comment_num_1', 'comment_num_2', 'comment_num_3',
-                 'comment_num_4']]
-            pickle.dump(comments, open(dump_path, 'w'))
-        return comments
+    # def get_comments_product_feat(self, start_date, end_date):
+    #     action_path = 'comments_accumulate_%s_%s.pkl' % (start_date, end_date)
+    #     dump_path = os.path.join(self.cache_path, action_path)
+    #     if os.path.exists(dump_path):
+    #         comments = pickle.load(open(dump_path))
+    #     else:
+    #         comments = pd.read_csv(self.comment_path)
+    #         comment_date_end = end_date
+    #         comment_date_begin = self.comment_date[0]
+    #         for date in reversed(self.comment_date):
+    #             if date < comment_date_end:
+    #                 comment_date_begin = date
+    #                 break
+    #         comments = comments[(comments.dt >= comment_date_begin) & (comments.dt < comment_date_end)]
+    #         comments['comments'] = comments['comments'].map()
+    #         df = pd.get_dummies(comments['comments'], prefix='comments')
+    #         comments = pd.concat([comments, df], axis=1)  # type: pd.DataFrame
+    #         # del comments['dt']
+    #         # del comments['comment_num']
+    #         comments = comments[
+    #             ['sku_id', 'has_bad_comment', 'bad_comment_rate', 'comment_num_1', 'comment_num_2', 'comment_num_3',
+    #              'comment_num_4']]
+    #         pickle.dump(comments, open(dump_path, 'w'))
+    #     return comments
+
+    def get_comments_product_feat(self,comment_date_begin,comment_date_end):
+        comments = pd.read_csv(self.comment_path)
+        comments = comments[(comments.dt >= comment_date_begin) & (comments.dt < comment_date_end)]
+        comments_dic = {}
+        for index, row in comments.iterrows():
+            comment_list = np.array([row['comments'], row['good_comments'], row['bad_comments']])
+            if not row['sku_id'] in comments_dic.keys():
+                comments_dic[row['sku_id']] = comment_list
+            else:
+                comments_dic[row['sku_id']] += comment_list
+        dict = pd.DataFrame.from_dict(comments_dic, orient='index',
+                                      columns=['comments', 'good_comments', 'bad_comments'])
+        dict = dict.reset_index().rename(columns={'index': 'sku_id'})
+        dict['bad_comments_ratio'] = dict['bad_comments'] / dict['comments']
+        dict['comments'] = dict['comments'].map(self.convert_comment)
+        dict['has_bad_comments'] = dict['bad_comments'].map(self.has_bad_comment)
+        comments_df = pd.get_dummies(dict['comments'], prefix="comments")
+        dict = pd.concat([dict, comments_df], axis=1)
+        dict = dict[['sku_id', 'has_bad_comments', 'bad_comments_ratio', 'comments_1', 'comments_2', 'comments_3',
+                     'comments_4']]
+        return dict
 
     def get_shop_product_feat(self):
         dump_path = os.path.join(self.cache_path, 'shop.pkl')
