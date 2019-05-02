@@ -14,12 +14,14 @@ from glob import glob
 def convert_num(num_str):
     num = int(num_str)
 
+
 class Datebase(object):
     DATA_ROOT = '/home/fish/data/jdata'
     cache_path = os.path.join(DATA_ROOT, 'cache')
     user_path = os.path.join(DATA_ROOT, 'jdata_user.csv')
     product_path = os.path.join(DATA_ROOT, 'jdata_product.csv')
     comment_path = os.path.join(DATA_ROOT, 'jdata_comment.csv')
+    shop_path = os.path.join(DATA_ROOT, 'jdata_shop.csv')
     action_file = os.path.join(DATA_ROOT, 'jdata_action.csv')
     month_file = os.path.join(DATA_ROOT, 'month', 'jdata_action_2.csv')
     USER_PATH = os.path.join(DATA_ROOT, 'user')
@@ -152,7 +154,7 @@ class Datebase(object):
         if os.path.exists(dump_path):
             user = pickle.load(open(dump_path))
         else:
-            user = pd.read_csv(self.user_path)
+            user = pd.read_csv(self.user_path,encoding='gbk')
             age_df = pd.get_dummies(user["age"], prefix="age")
             sex_df = pd.get_dummies(user["sex"], prefix="sex")
             user_lv_df = pd.get_dummies(user["user_lv_cd"], prefix="user_lv_cd")
@@ -274,6 +276,16 @@ class Datebase(object):
             pickle.dump(comments, open(dump_path, 'w'))
         return comments
 
+    def get_shop_product_feat(self):
+        dump_path = os.path.join(self.cache_path, 'shop.pkl')
+        if os.path.exists(dump_path):
+            shop = pickle.load(open(dump_path))
+        else:
+            shop = pd.read_csv(self.shop_path)
+            shop = shop['shop_id', 'fans_num', 'vip_num', 'shop_reg_tm', 'shop_socre']
+            pickle.dump(shop, open(dump_path, 'w'))
+        return shop
+
     def get_accumulate_user_feat(self, start_date, end_date):
         feature = ['user_id', 'user_action_1_ratio', 'user_action_3_ratio', 'user_action_4_ratio',
                    'user_action_5_ratio']
@@ -337,6 +349,7 @@ class Datebase(object):
             start_days = "2018-02-01"
             user = self.get_basic_user_feat()
             product = self.get_basic_product_feat()
+            shop = self.get_shop_product_feat()
             user_acc = self.get_accumulate_user_feat(start_days, train_end_date)
             product_acc = self.get_accumulate_product_feat(start_days, train_end_date)
             comment_acc = self.get_comments_product_feat(train_start_date, train_end_date)
@@ -356,9 +369,10 @@ class Datebase(object):
 
             actions = pd.merge(actions, user, how='left', on='user_id')
             actions = pd.merge(actions, user_acc, how='left', on='user_id')
+            #product = pd.merge(product, shop, how='left', on='shop_id')
             actions = pd.merge(actions, product, how='left', on='sku_id')
             actions = pd.merge(actions, product_acc, how='left', on='sku_id')
-            actions = pd.merge(actions, comment_acc, how='left', on='sku_id')
+            # actions = pd.merge(actions, comment_acc, how='left', on='sku_id')
             # actions = pd.merge(actions, labels, how='left', on=['user_id', 'sku_id'])
             actions = actions.fillna(0)
             actions = actions[actions['cate'] == 8]
@@ -398,7 +412,7 @@ class Datebase(object):
             actions = pd.merge(actions, user_acc, how='left', on='user_id')
             actions = pd.merge(actions, product, how='left', on='sku_id')
             actions = pd.merge(actions, product_acc, how='left', on='sku_id')
-            actions = pd.merge(actions, comment_acc, how='left', on='sku_id')
+            # actions = pd.merge(actions, comment_acc, how='left', on='sku_id')
             actions = pd.merge(actions, labels, how='left', on=['user_id', 'sku_id'])
             actions = actions.fillna(0)
 
