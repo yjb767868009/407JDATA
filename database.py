@@ -16,7 +16,7 @@ def convert_num(num_str):
 
 
 class Datebase(object):
-    DATA_ROOT = '/home/fish/data/jdata'
+    DATA_ROOT = 'D://data//jdata'
     cache_path = os.path.join(DATA_ROOT, 'cache')
     user_path = os.path.join(DATA_ROOT, 'jdata_user.csv')
     product_path = os.path.join(DATA_ROOT, 'jdata_product.csv')
@@ -33,9 +33,62 @@ class Datebase(object):
     comment_date = ["2018-02-01", "2018-02-08", "2018-02-15", "2018-02-22", "2018-02-29", "2018-03-07", "2018-03-14",
                     "2018-03-21", "2018-03-28", "2018-04-04", "2018-04-11", "2018-04-15"]
 
+    def make_sample(self):
+        sample_path = os.path.join(self.DATA_ROOT, 'sample')
+        action_sample_path = os.path.join(sample_path, 'jdata_action.csv')
+        shop_sample_path = os.path.join(sample_path, 'jdata_shop.csv')
+        product_sample_path = os.path.join(sample_path, 'jdata_product.csv')
+        user_sample_path = os.path.join(sample_path, 'jdata_user.csv')
+        comment_sample_path = os.path.join(sample_path, 'jdata_comment.csv')
+
+        def create_action_sample(user_name):
+            user_list = []
+            with open(self.action_file, 'r', encoding='UTF-8') as input:
+                readCSV = csv.reader(input)
+                f_flag = True
+                for row in readCSV:
+                    if f_flag:
+                        f_flag = False
+                        continue
+                    name = row[0]
+                    if int(name) == user_name:
+                        user_list.append(row)
+
+            out_file = open(action_sample_path, 'w', newline='')
+            csv_writer = csv.writer(out_file)
+            for row in user_list:
+                csv_writer.writerow(row)
+
+        def create_product_sample():
+            action = pd.read_csv(action_sample_path)
+            sku_list = action.sku_id.values
+            product = pd.read_csv(self.product_path)
+            product = product[product['sku_id'].isin(sku_list)]
+            product.to_csv(product_sample_path, index=False)
+
+        def create_shop_sample():
+            product = pd.read_csv(product_sample_path)
+            shop_list = product.shop_id.values
+            shop = pd.read_csv(self.shop_path)
+            shop = shop[shop['shop_id'].isin(shop_list)]
+            shop.to_csv(shop_sample_path, index=False)
+
+        def create_user_sample(user_name):
+            user = pd.read_csv(self.user_path)
+            user = user[(user['user_id'] == user_name)]
+            user.to_csv(user_sample_path, index=False)
+
+        def create_comment_sample():
+            action = pd.read_csv(action_sample_path)
+            sku_list = action.sku_id.values
+            comment = pd.read_csv(self.comment_path)
+            comment = comment[comment['sku_id'].isin(sku_list)]
+            comment.to_csv(comment_sample_path, index=False)
+
+        create_comment_sample()
+
     # 将行为按月份划分
     def month_div(self):
-
         month_list = []
         with open(self.action_file, 'r', encoding='UTF-8') as input:
             readCSV = csv.reader(input)
@@ -54,8 +107,8 @@ class Datebase(object):
         for row in month_list:
             csv_writer.writerow(row)
 
-    #将评论数量转换成数字
-    def convert_comment(number):
+    # 将评论数量转换成数字
+    def convert_comment(self, number):
         if number <= 1:
             return 1
         elif number <= 10:
@@ -65,8 +118,8 @@ class Datebase(object):
         else:
             return 4
 
-    #有无差评，1表示有
-    def has_bad_comment(number):
+    # 有无差评，1表示有
+    def has_bad_comment(self, number):
         if (number > 0):
             return 1
         else:
@@ -172,7 +225,7 @@ class Datebase(object):
         if os.path.exists(dump_path):
             user = pickle.load(open(dump_path))
         else:
-            user = pd.read_csv(self.user_path,encoding='gbk')
+            user = pd.read_csv(self.user_path, encoding='gbk')
             age_df = pd.get_dummies(user["age"], prefix="age")
             sex_df = pd.get_dummies(user["sex"], prefix="sex")
             user_lv_df = pd.get_dummies(user["user_lv_cd"], prefix="user_lv_cd")
@@ -294,7 +347,7 @@ class Datebase(object):
     #         pickle.dump(comments, open(dump_path, 'w'))
     #     return comments
 
-    def get_comments_product_feat(self,comment_date_begin,comment_date_end):
+    def get_comments_product_feat(self, comment_date_begin, comment_date_end):
         comments = pd.read_csv(self.comment_path)
         comments = comments[(comments.dt >= comment_date_begin) & (comments.dt < comment_date_end)]
         comments_dic = {}
@@ -409,7 +462,7 @@ class Datebase(object):
 
             actions = pd.merge(actions, user, how='left', on='user_id')
             actions = pd.merge(actions, user_acc, how='left', on='user_id')
-            #product = pd.merge(product, shop, how='left', on='shop_id')
+            # product = pd.merge(product, shop, how='left', on='shop_id')
             actions = pd.merge(actions, product, how='left', on='sku_id')
             actions = pd.merge(actions, product_acc, how='left', on='sku_id')
             # actions = pd.merge(actions, comment_acc, how='left', on='sku_id')
@@ -465,7 +518,6 @@ class Datebase(object):
         return users, actions, labels
 
     def report(self, pred, label):
-
         actions = label
         result = pred
 
@@ -512,4 +564,4 @@ class Datebase(object):
 
 if __name__ == '__main__':
     d = Datebase()
-    d.get_basic_user_feat()
+    d.make_sample()
