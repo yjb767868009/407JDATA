@@ -16,7 +16,7 @@ def convert_num(num_str):
 
 
 class Datebase(object):
-    DATA_ROOT = 'D://data//jdata'
+    DATA_ROOT = '/home/fish/data/jdata/sample'
     cache_path = os.path.join(DATA_ROOT, 'cache')
     user_path = os.path.join(DATA_ROOT, 'jdata_user.csv')
     product_path = os.path.join(DATA_ROOT, 'jdata_product.csv')
@@ -30,6 +30,7 @@ class Datebase(object):
     action_1_path = os.path.join(DATA_ROOT, 'month', 'jdata_action_2.csv')
     action_2_path = os.path.join(DATA_ROOT, 'month', 'jdata_action_3.csv')
     action_3_path = os.path.join(DATA_ROOT, 'month', 'jdata_action_4.csv')
+    action_path = os.path.join(DATA_ROOT, 'jdata_action.csv')
     comment_date = ["2018-02-01", "2018-02-08", "2018-02-15", "2018-02-22", "2018-02-29", "2018-03-07", "2018-03-14",
                     "2018-03-21", "2018-03-28", "2018-04-04", "2018-04-11", "2018-04-15"]
 
@@ -41,23 +42,10 @@ class Datebase(object):
         user_sample_path = os.path.join(sample_path, 'jdata_user.csv')
         comment_sample_path = os.path.join(sample_path, 'jdata_comment.csv')
 
-        def create_action_sample(user_name):
-            user_list = []
-            with open(self.action_file, 'r', encoding='UTF-8') as input:
-                readCSV = csv.reader(input)
-                f_flag = True
-                for row in readCSV:
-                    if f_flag:
-                        f_flag = False
-                        continue
-                    name = row[0]
-                    if int(name) == user_name:
-                        user_list.append(row)
-
-            out_file = open(action_sample_path, 'w', newline='')
-            csv_writer = csv.writer(out_file)
-            for row in user_list:
-                csv_writer.writerow(row)
+        def create_action_sample(user_list):
+            action = pd.read_csv(self.action_path)
+            action = action[(action['user_id'].isin(user_list))]
+            action.to_csv(action_sample_path, index=False)
 
         def create_product_sample():
             action = pd.read_csv(action_sample_path)
@@ -73,9 +61,9 @@ class Datebase(object):
             shop = shop[shop['shop_id'].isin(shop_list)]
             shop.to_csv(shop_sample_path, index=False)
 
-        def create_user_sample(user_name):
+        def create_user_sample(user_list):
             user = pd.read_csv(self.user_path)
-            user = user[(user['user_id'] == user_name)]
+            user = user[(user['user_id'].isin(user_list))]
             user.to_csv(user_sample_path, index=False)
 
         def create_comment_sample():
@@ -85,6 +73,11 @@ class Datebase(object):
             comment = comment[comment['sku_id'].isin(sku_list)]
             comment.to_csv(comment_sample_path, index=False)
 
+        user_list = range(1184330, 1184340)
+        create_action_sample(user_list)
+        create_user_sample(user_list)
+        create_product_sample()
+        create_shop_sample()
         create_comment_sample()
 
     # 将行为按月份划分
@@ -223,7 +216,7 @@ class Datebase(object):
     def get_basic_user_feat(self):
         dump_path = os.path.join(self.cache_path, 'basic_user.pkl')
         if os.path.exists(dump_path):
-            user = pickle.load(open(dump_path))
+            user = pickle.load(open(dump_path, 'rb'))
         else:
             user = pd.read_csv(self.user_path, encoding='gbk')
             age_df = pd.get_dummies(user["age"], prefix="age")
@@ -239,12 +232,12 @@ class Datebase(object):
     def get_basic_product_feat(self):
         dump_path = os.path.join(self.cache_path, 'basic_product.pkl')
         if os.path.exists(dump_path):
-            product = pickle.load(open(dump_path))
+            product = pickle.load(open(dump_path, 'rb'))
         else:
             product = pd.read_csv(self.product_path)
             shop_id_df = pd.get_dummies(product["shop_id"], prefix="shop_id")
             product = pd.concat([product[['sku_id', 'cate', 'brand']], shop_id_df], axis=1)
-            pickle.dump(product, open(dump_path, 'w'))
+            pickle.dump(product, open(dump_path, 'wb'), protocol=4)
         return product
 
     def get_actions_1(self):
@@ -268,21 +261,22 @@ class Datebase(object):
         action_path = 'all_action_%s_%s.pkl' % (start_date, end_date)
         dump_path = os.path.join(self.cache_path, action_path)
         if os.path.exists(dump_path):
-            actions = pickle.load(open(dump_path))
+            actions = pickle.load(open(dump_path, 'rb'))
         else:
-            action_1 = self.get_actions_1()
-            action_2 = self.get_actions_2()
-            action_3 = self.get_actions_3()
-            actions = pd.concat([action_1, action_2, action_3])  # type: pd.DataFrame
-            actions = actions[(actions.time >= start_date) & (actions.time < end_date)]
-            pickle.dump(actions, open(dump_path, 'w'))
+            # action_1 = self.get_actions_1()
+            # action_2 = self.get_actions_2()
+            # action_3 = self.get_actions_3()
+            # actions = pd.concat([action_1, action_2, action_3])  # type: pd.DataFrame
+            actions = pd.read_csv(self.action_path)
+            actions = actions[(actions.action_time >= start_date) & (actions.action_time < end_date)]
+            pickle.dump(actions, open(dump_path, 'wb'), protocol=4)
         return actions
 
     def get_action_feat(self, start_date, end_date):
         action_path = 'action_accumulate_%s_%s.pkl' % (start_date, end_date)
         dump_path = os.path.join(self.cache_path, action_path)
         if os.path.exists(dump_path):
-            actions = pickle.load(open(dump_path))
+            actions = pickle.load(open(dump_path, 'rb'))
         else:
             actions = self.get_actions(start_date, end_date)
             actions = actions[['user_id', 'sku_id', 'type']]
@@ -290,14 +284,14 @@ class Datebase(object):
             actions = pd.concat([actions, df], axis=1)  # type: pd.DataFrame
             actions = actions.groupby(['user_id', 'sku_id'], as_index=False).sum()
             del actions['type']
-            pickle.dump(actions, open(dump_path, 'w'))
+            pickle.dump(actions, open(dump_path, 'wb'), protocol=4)
         return actions
 
     def get_accumulate_action_feat(self, start_date, end_date):
         action_path = 'action_accumulate_%s_%s.pkl' % (start_date, end_date)
         dump_path = os.path.join(self.cache_path, action_path)
         if os.path.exists(dump_path):
-            actions = pickle.load(open(dump_path))
+            actions = pickle.load(open(dump_path, 'rb'))
         else:
             actions = self.get_actions(start_date, end_date)
             df = pd.get_dummies(actions['type'], prefix='action')
@@ -319,14 +313,14 @@ class Datebase(object):
             del actions['datetime']
             del actions['weights']
             actions = actions.groupby(['user_id', 'sku_id'], as_index=False).sum()
-            pickle.dump(actions, open(dump_path, 'w'))
+            pickle.dump(actions, open(dump_path, 'wb'), protocol=4)
         return actions
 
     # def get_comments_product_feat(self, start_date, end_date):
     #     action_path = 'comments_accumulate_%s_%s.pkl' % (start_date, end_date)
     #     dump_path = os.path.join(self.cache_path, action_path)
     #     if os.path.exists(dump_path):
-    #         comments = pickle.load(open(dump_path))
+    #         comments = pickle.load(open(dump_path,'rb'))
     #     else:
     #         comments = pd.read_csv(self.comment_path)
     #         comment_date_end = end_date
@@ -344,7 +338,7 @@ class Datebase(object):
     #         comments = comments[
     #             ['sku_id', 'has_bad_comment', 'bad_comment_rate', 'comment_num_1', 'comment_num_2', 'comment_num_3',
     #              'comment_num_4']]
-    #         pickle.dump(comments, open(dump_path, 'w'))
+    #         pickle.dump(comments, open(dump_path, 'wb'),protocol=4)
     #     return comments
 
     def get_comments_product_feat(self, comment_date_begin, comment_date_end):
@@ -372,11 +366,11 @@ class Datebase(object):
     def get_shop_product_feat(self):
         dump_path = os.path.join(self.cache_path, 'shop.pkl')
         if os.path.exists(dump_path):
-            shop = pickle.load(open(dump_path))
+            shop = pickle.load(open(dump_path, 'rb'))
         else:
             shop = pd.read_csv(self.shop_path)
             shop = shop['shop_id', 'fans_num', 'vip_num', 'shop_reg_tm', 'shop_socre']
-            pickle.dump(shop, open(dump_path, 'w'))
+            pickle.dump(shop, open(dump_path, 'wb'), protocol=4)
         return shop
 
     def get_accumulate_user_feat(self, start_date, end_date):
@@ -385,18 +379,19 @@ class Datebase(object):
         file_name = 'user_feat_accumulate_%s_%s.pkl' % (start_date, end_date)
         dump_path = os.path.join(self.cache_path, file_name)
         if os.path.exists(dump_path):
-            actions = pickle.load(open(dump_path))
+            actions = pickle.load(open(dump_path, 'rb'))
         else:
             actions = self.get_actions(start_date, end_date)
             df = pd.get_dummies(actions['type'], prefix='action')
             actions = pd.concat([actions['user_id'], df], axis=1)
             actions = actions.groupby(['user_id'], as_index=False).sum()
+            print(actions)
             actions['user_action_1_ratio'] = actions['action_2'] / actions['action_1']
             actions['user_action_3_ratio'] = actions['action_2'] / actions['action_3']
             actions['user_action_4_ratio'] = actions['action_2'] / actions['action_4']
             actions['user_action_5_ratio'] = actions['action_2'] / actions['action_5']
             actions = actions[feature]
-            pickle.dump(actions, open(dump_path, 'w'))
+            pickle.dump(actions, open(dump_path, 'wb'), protocol=4)
         return actions
 
     def get_accumulate_product_feat(self, start_date, end_date):
@@ -405,7 +400,7 @@ class Datebase(object):
         file_name = 'product_feat_accumulate_%s_%s.pkl' % (start_date, end_date)
         dump_path = os.path.join(self.cache_path, file_name)
         if os.path.exists(dump_path):
-            actions = pickle.load(open(dump_path))
+            actions = pickle.load(open(dump_path, 'rb'))
         else:
             actions = self.get_actions(start_date, end_date)
             df = pd.get_dummies(actions['type'], prefix='action')
@@ -416,33 +411,33 @@ class Datebase(object):
             actions['product_action_4_ratio'] = actions['action_2'] / actions['action_4']
             actions['product_action_5_ratio'] = actions['action_2'] / actions['action_5']
             actions = actions[feature]
-            pickle.dump(actions, open(dump_path, 'w'))
+            pickle.dump(actions, open(dump_path, 'wb'), protocol=4)
         return actions
 
     def get_labels(self, start_date, end_date):
         label_name = 'labels_%s_%s.pkl' % (start_date, end_date)
         dump_path = os.path.join(self.cache_path, label_name)
         if os.path.exists(dump_path):
-            actions = pickle.load(open(dump_path))
+            actions = pickle.load(open(dump_path, 'rb'))
         else:
             actions = self.get_actions(start_date, end_date)
             actions = actions[actions['type'] == 4]
             actions = actions.groupby(['user_id', 'sku_id'], as_index=False).sum()
             actions['label'] = 1
             actions = actions[['user_id', 'sku_id', 'label']]
-            pickle.dump(actions, open(dump_path, 'w'))
+            pickle.dump(actions, open(dump_path, 'wb'), protocol=4)
         return actions
 
     def make_test_set(self, train_start_date, train_end_date):
         test_name = 'test_set_%s_%s.pkl' % (train_start_date, train_end_date)
         dump_path = os.path.join(self.cache_path, test_name)
         if os.path.exists(dump_path):
-            actions = pickle.load(open(dump_path))
+            actions = pickle.load(open(dump_path, 'rb'))
         else:
             start_days = "2018-02-01"
             user = self.get_basic_user_feat()
             product = self.get_basic_product_feat()
-            shop = self.get_shop_product_feat()
+            # shop = self.get_shop_product_feat()
             user_acc = self.get_accumulate_user_feat(start_days, train_end_date)
             product_acc = self.get_accumulate_product_feat(start_days, train_end_date)
             comment_acc = self.get_comments_product_feat(train_start_date, train_end_date)
@@ -479,7 +474,7 @@ class Datebase(object):
         train_name = 'train_set_%s_%s_%s_%s.pkl' % (train_start_date, train_end_date, test_start_date, test_end_date)
         dump_path = os.path.join(self.cache_path, train_name)
         if os.path.exists(dump_path):
-            actions = pickle.load(open(dump_path))
+            actions = pickle.load(open(dump_path, 'rb'))
         else:
             start_days = "2018-02-01"
             user = self.get_basic_user_feat()

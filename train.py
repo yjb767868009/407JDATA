@@ -25,7 +25,7 @@ def xgboost_make_submission():
     num_round = 283
     param['nthread'] = 4
     # param['eval_metric'] = "auc"
-    plst = param.items()
+    plst = list(param.items())
     plst += [('eval_metric', 'logloss')]
     evallist = [(dtest, 'eval'), (dtrain, 'train')]
     bst = xgb.train(plst, dtrain, num_round, evallist)
