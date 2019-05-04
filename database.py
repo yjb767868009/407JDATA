@@ -16,7 +16,7 @@ def convert_num(num_str):
 
 
 class Datebase(object):
-    DATA_ROOT = '/home/fish/data/jdata/sample'
+    DATA_ROOT = '/home/fish/data/jdata'
     cache_path = os.path.join(DATA_ROOT, 'cache')
     user_path = os.path.join(DATA_ROOT, 'jdata_user.csv')
     product_path = os.path.join(DATA_ROOT, 'jdata_product.csv')
@@ -73,7 +73,7 @@ class Datebase(object):
             comment = comment[comment['sku_id'].isin(sku_list)]
             comment.to_csv(comment_sample_path, index=False)
 
-        user_list = range(1184330, 1184340)
+        user_list = range(1100000, 1200000)
         create_action_sample(user_list)
         create_user_sample(user_list)
         create_product_sample()
@@ -218,15 +218,19 @@ class Datebase(object):
         if os.path.exists(dump_path):
             user = pickle.load(open(dump_path, 'rb'))
         else:
+            # user = pd.read_csv(self.user_path, encoding='gbk')
+            # age_df = pd.get_dummies(user["age"], prefix="age")
+            # sex_df = pd.get_dummies(user["sex"], prefix="sex")
+            # user_lv_df = pd.get_dummies(user["user_lv_cd"], prefix="user_lv_cd")
+            # province_df = pd.get_dummies(user["province"], prefix="province")
+            # city_df = pd.get_dummies(user["city"], prefix="city")
+            # county_df = pd.get_dummies(user["county"], prefix="county")
+            # user = pd.concat([user['user_id'], age_df, sex_df, user_lv_df, province_df, city_df, county_df], axis=1)
+            # pickle.dump(user, open(dump_path, 'wb'), protocol=4)
             user = pd.read_csv(self.user_path, encoding='gbk')
-            age_df = pd.get_dummies(user["age"], prefix="age")
-            sex_df = pd.get_dummies(user["sex"], prefix="sex")
-            user_lv_df = pd.get_dummies(user["user_lv_cd"], prefix="user_lv_cd")
-            province_df = pd.get_dummies(user["province"], prefix="province")
-            city_df = pd.get_dummies(user["city"], prefix="city")
-            county_df = pd.get_dummies(user["county"], prefix="county")
-            user = pd.concat([user['user_id'], age_df, sex_df, user_lv_df, province_df, city_df, county_df], axis=1)
+            del user['user_reg_tm']
             pickle.dump(user, open(dump_path, 'wb'), protocol=4)
+        #print(user.head(10))
         return user
 
     def get_basic_product_feat(self):
@@ -235,9 +239,11 @@ class Datebase(object):
             product = pickle.load(open(dump_path, 'rb'))
         else:
             product = pd.read_csv(self.product_path)
-            shop_id_df = pd.get_dummies(product["shop_id"], prefix="shop_id")
-            product = pd.concat([product[['sku_id', 'cate', 'brand']], shop_id_df], axis=1)
+            # shop_id_df = pd.get_dummies(product["shop_id"], prefix="shop_id")
+            # product = pd.concat([product[['sku_id', 'cate', 'brand']], shop_id_df], axis=1)
+            del product['market_time']
             pickle.dump(product, open(dump_path, 'wb'), protocol=4)
+        #print(product.head(10))
         return product
 
     def get_actions_1(self):
@@ -285,6 +291,8 @@ class Datebase(object):
             actions = actions.groupby(['user_id', 'sku_id'], as_index=False).sum()
             del actions['type']
             pickle.dump(actions, open(dump_path, 'wb'), protocol=4)
+        #print(action_path)
+        #print(actions.head(10))
         return actions
 
     def get_accumulate_action_feat(self, start_date, end_date):
@@ -361,6 +369,7 @@ class Datebase(object):
         dict = pd.concat([dict, comments_df], axis=1)
         dict = dict[['sku_id', 'has_bad_comments', 'bad_comments_ratio', 'comments_1', 'comments_2', 'comments_3',
                      'comments_4']]
+        #print(dict.head(10))
         return dict
 
     def get_shop_product_feat(self):
@@ -385,13 +394,13 @@ class Datebase(object):
             df = pd.get_dummies(actions['type'], prefix='action')
             actions = pd.concat([actions['user_id'], df], axis=1)
             actions = actions.groupby(['user_id'], as_index=False).sum()
-            print(actions)
             actions['user_action_1_ratio'] = actions['action_2'] / actions['action_1']
             actions['user_action_3_ratio'] = actions['action_2'] / actions['action_3']
             actions['user_action_4_ratio'] = actions['action_2'] / actions['action_4']
             actions['user_action_5_ratio'] = actions['action_2'] / actions['action_5']
             actions = actions[feature]
             pickle.dump(actions, open(dump_path, 'wb'), protocol=4)
+        #print(actions.head(10))
         return actions
 
     def get_accumulate_product_feat(self, start_date, end_date):
@@ -412,6 +421,7 @@ class Datebase(object):
             actions['product_action_5_ratio'] = actions['action_2'] / actions['action_5']
             actions = actions[feature]
             pickle.dump(actions, open(dump_path, 'wb'), protocol=4)
+        #print(actions.head(10))
         return actions
 
     def get_labels(self, start_date, end_date):
@@ -441,7 +451,7 @@ class Datebase(object):
             user_acc = self.get_accumulate_user_feat(start_days, train_end_date)
             product_acc = self.get_accumulate_product_feat(start_days, train_end_date)
             comment_acc = self.get_comments_product_feat(train_start_date, train_end_date)
-            # labels = get_labels(test_start_date, test_end_date)
+            # labels = self.get_labels(train_start_date, train_end_date)
 
             # generate 时间窗口
             # actions = get_accumulate_action_feat(train_start_date, train_end_date)
@@ -460,10 +470,12 @@ class Datebase(object):
             # product = pd.merge(product, shop, how='left', on='shop_id')
             actions = pd.merge(actions, product, how='left', on='sku_id')
             actions = pd.merge(actions, product_acc, how='left', on='sku_id')
-            # actions = pd.merge(actions, comment_acc, how='left', on='sku_id')
+            actions = pd.merge(actions, comment_acc, how='left', on='sku_id')
             # actions = pd.merge(actions, labels, how='left', on=['user_id', 'sku_id'])
             actions = actions.fillna(0)
-            actions = actions[actions['cate'] == 8]
+            # actions = actions[actions['cate'] == 8]
+        print('create test set')
+        print(actions.head(10))
 
         users = actions[['user_id', 'sku_id']].copy()
         del actions['user_id']
@@ -500,9 +512,12 @@ class Datebase(object):
             actions = pd.merge(actions, user_acc, how='left', on='user_id')
             actions = pd.merge(actions, product, how='left', on='sku_id')
             actions = pd.merge(actions, product_acc, how='left', on='sku_id')
-            # actions = pd.merge(actions, comment_acc, how='left', on='sku_id')
+            actions = pd.merge(actions, comment_acc, how='left', on='sku_id')
             actions = pd.merge(actions, labels, how='left', on=['user_id', 'sku_id'])
             actions = actions.fillna(0)
+
+        print('create train set')
+        print(actions.head(10))
 
         users = actions[['user_id', 'sku_id']].copy()
         labels = actions['label'].copy()
@@ -556,7 +571,23 @@ class Datebase(object):
         print('F12=' + str(F12))
         print('score=' + str(score))
 
+    def save_pred(self, pred):
+        pred_path = os.path.join(self.DATA_ROOT, 'sub', 'submission.csv')
+        product = product = pd.read_csv(self.product_path)
+        del product['brand']
+        del product['market_time']
+        pred = pd.merge(pred, product, how='left', on='sku_id')
+        del pred['sku_id']
+        pred = pred.dropna()
+        pred['cate'] = pred['cate'].astype(int)
+        pred['shop_id'] = pred['shop_id'].astype(int)
+        print(pred.head(10))
+        column_titles = ['user_id', 'cate', 'shop_id']
+        pred = pred.reindex(columns=column_titles)
+        pred.to_csv(pred_path, index=False, index_label=False)
+
 
 if __name__ == '__main__':
     d = Datebase()
-    d.make_sample()
+    pred = pd.read_csv('./submission.csv')
+    d.save_pred(pred)

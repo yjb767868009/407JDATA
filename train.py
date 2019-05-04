@@ -1,3 +1,5 @@
+import os
+
 from sklearn.model_selection import train_test_split
 import xgboost as xgb
 from database import Datebase
@@ -5,13 +7,13 @@ from database import Datebase
 
 def xgboost_make_submission():
     data = Datebase()
-    train_start_date = '2018-03-10'
-    train_end_date = '2018-04-11'
-    test_start_date = '2018-04-11'
-    test_end_date = '2018-04-16'
+    train_start_date = '2018-03-7'
+    train_end_date = '2018-04-8'
+    test_start_date = '2018-04-8'
+    test_end_date = '2018-04-15'
 
-    sub_start_date = '2018-03-15'
-    sub_end_date = '2018-04-16'
+    sub_start_date = '2018-03-14'
+    sub_end_date = '2018-04-15'
 
     user_index, training_data, label = data.make_train_set(train_start_date, train_end_date, test_start_date,
                                                            test_end_date)
@@ -22,7 +24,7 @@ def xgboost_make_submission():
     param = {'learning_rate': 0.1, 'n_estimators': 1000, 'max_depth': 3,
              'min_child_weight': 5, 'gamma': 0, 'subsample': 1.0, 'colsample_bytree': 0.8,
              'scale_pos_weight': 1, 'eta': 0.05, 'silent': 1, 'objective': 'binary:logistic'}
-    num_round = 283
+    num_round = 500
     param['nthread'] = 4
     # param['eval_metric'] = "auc"
     plst = list(param.items())
@@ -37,7 +39,8 @@ def xgboost_make_submission():
     pred = pred[['user_id', 'sku_id']]
     pred = pred.groupby('user_id').first().reset_index()
     pred['user_id'] = pred['user_id'].astype(int)
-    pred.to_csv('./sub/submission.csv', index=False, index_label=False)
+    pred.to_csv('./submission.csv', index=False, index_label=False)
+    data.save_pred(pred)
 
 
 def xgboost_cv():
