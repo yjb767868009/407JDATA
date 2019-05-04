@@ -16,7 +16,7 @@ In `train.py`
 # Run
 Install requirement package
 ```bash
-pip install requirsments.txt
+pip install -r requirsments.txt
 ```
 
 Just
