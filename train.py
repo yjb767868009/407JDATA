@@ -3,7 +3,6 @@ import os
 from sklearn.model_selection import train_test_split
 import xgboost as xgb
 from database import Datebase
-from xgboost import plot_importance
 from matplotlib import pyplot as plt
 
 
@@ -15,7 +14,7 @@ def xgboost_make_submission():
     test_start_date = '2018-04-09'
     test_end_date = '2018-04-16'
 
-    sub_start_date = '2018-03-15'
+    sub_start_date = '2018-02-08'
     sub_end_date = '2018-04-16'
 
     user_index, training_data, label = data.make_train_set(train_start_date, train_end_date, test_start_date,
@@ -29,7 +28,7 @@ def xgboost_make_submission():
              'scale_pos_weight': 1, 'eta': 0.3, 'silent': 1, 'objective': 'binary:logistic'}
     num_round = 400
     param['nthread'] = 4
-    # param['eval_metric'] = "auc"
+    param['eval_metric'] = "auc"
     plst = list(param.items())
     plst += [('eval_metric', 'logloss')]
     evallist = [(dtest, 'eval'), (dtrain, 'train')]
@@ -38,12 +37,12 @@ def xgboost_make_submission():
     sub_trainning_data = xgb.DMatrix(sub_trainning_data.values)
     y = bst.predict(sub_trainning_data)
     sub_user_index['label'] = y
-    sub_user_index.to_csv('./sub_user_index.csv', index=False, index_label=False)
+    # sub_user_index.to_csv('./sub_user_index.csv', index=False, index_label=False)
     pred = sub_user_index[sub_user_index['label'] >= 0.03]
     pred = pred[['user_id', 'sku_id']]
     pred = pred.groupby('user_id').first().reset_index()
     pred['user_id'] = pred['user_id'].astype(int)
-    pred.to_csv('./submission.csv', index=False, index_label=False)
+    # pred.to_csv('./submission.csv', index=False, index_label=False)
     data.save_pred(pred)
 
 

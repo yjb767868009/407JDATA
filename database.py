@@ -11,29 +11,19 @@ from tqdm import tqdm
 from glob import glob
 
 
-def convert_num(num_str):
-    num = int(num_str)
-
-
 class Datebase(object):
     DATA_ROOT = '/home/fish/data/jdata'
-    cache_path = os.path.join(DATA_ROOT, 'cache')
+    CLEAN_PATH = os.path.join(DATA_ROOT, 'clean')
+    CACHE_PATH = os.path.join(DATA_ROOT, 'cache')
     user_path = os.path.join(DATA_ROOT, 'jdata_user.csv')
     product_path = os.path.join(DATA_ROOT, 'jdata_product.csv')
     comment_path = os.path.join(DATA_ROOT, 'jdata_comment.csv')
     shop_path = os.path.join(DATA_ROOT, 'jdata_shop.csv')
-    action_file = os.path.join(DATA_ROOT, 'jdata_action.csv')
-    month_file = os.path.join(DATA_ROOT, 'month', 'jdata_action_2.csv')
-    USER_PATH = os.path.join(DATA_ROOT, 'user')
-    CLEAN_USER_PATH = os.path.join(DATA_ROOT, 'clean_usr')
-    DAY_PATH = os.path.join(DATA_ROOT, 'day')
-    action_1_path = os.path.join(DATA_ROOT, 'month', 'jdata_action_2.csv')
-    action_2_path = os.path.join(DATA_ROOT, 'month', 'jdata_action_3.csv')
-    action_3_path = os.path.join(DATA_ROOT, 'month', 'jdata_action_4.csv')
     action_path = os.path.join(DATA_ROOT, 'jdata_action.csv')
     comment_date = ["2018-02-01", "2018-02-08", "2018-02-15", "2018-02-22", "2018-03-01", "2018-03-08", "2018-03-15",
                     "2018-03-22", "2018-03-29", "2018-04-05", "2018-04-12", "2018-04-15"]
 
+    # 生成小样本数据，进行测试
     def make_sample(self):
         sample_path = os.path.join(self.DATA_ROOT, 'sample')
         action_sample_path = os.path.join(sample_path, 'jdata_action.csv')
@@ -80,26 +70,6 @@ class Datebase(object):
         create_shop_sample()
         create_comment_sample()
 
-    # 将行为按月份划分
-    def month_div(self):
-        month_list = []
-        with open(self.action_file, 'r', encoding='UTF-8') as input:
-            readCSV = csv.reader(input)
-            f_flag = True
-            for row in readCSV:
-                if f_flag:
-                    f_flag = False
-                    continue
-                date = row[2].split('-')
-                if date[1] == '04':
-                    month_list.append(row)
-                    print('read month 4')
-
-        out_file = open(self.month_file, 'w', newline='')
-        csv_writer = csv.writer(out_file)
-        for row in month_list:
-            csv_writer.writerow(row)
-
     # 将评论数量转换成数字
     def convert_comment(self, number):
         if number <= 1:
@@ -118,103 +88,22 @@ class Datebase(object):
         else:
             return 0
 
-    # 将行为按用户id划分第二版
-    def user_div2(self):
-        user_name = 600000
-        while True:
-            user_list = []
-            with open(self.action_file, 'r', encoding='UTF-8') as input:
-                readCSV = csv.reader(input)
-                f_flag = True
-                for row in readCSV:
-                    if f_flag:
-                        f_flag = False
-                        continue
-                    name = row[0]
-                    if int(name) == user_name:
-                        user_list.append(row)
-
-            user_file = os.path.join(self.USER_PATH, str(user_name) + '.csv')
-            out_file = open(user_file, 'w', newline='')
-            csv_writer = csv.writer(out_file)
-            for row in user_list:
-                csv_writer.writerow(row)
-            out_file.close()
-            user_name += 1
-            print("found " + str(user_name))
-
-    # 将行为按用户id划分
-    def user_div(self):
-        USER_PATH = os.path.join(self.DATA_ROOT, 'user')
-        user_map = {}
-        with open(self.action_file, 'r', encoding='UTF-8') as input:
-            readCSV = csv.reader(input)
-            f_flag = True
-            for row in readCSV:
-                if f_flag:
-                    f_flag = False
-                    continue
-                name = row[0]
-                if 1499999 < int(name) < 2000000:
-                    if name not in user_map:
-                        user_map[name] = [row]
-                    else:
-                        user_map[name].append(row)
-
-        for user_name in user_map:
-            user_list = user_map[user_name]
-            user_file = os.path.join(USER_PATH, user_name + '.csv')
-            out_file = open(user_file, 'w', newline='')
-            csv_writer = csv.writer(out_file)
-            for row in user_list:
-                csv_writer.writerow(row)
-
     # 清洗用户
     def clean_user(self):
-        # ser_files = sorted(glob(os.path.join(USER_PATH, '*.csv')))
-        user_files = ["D://data//jdata//user//1370817.csv"]
-        for i, user_file in enumerate(tqdm(user_files)):
-            with open(user_file, 'r') as fp:
-                readCSV = csv.reader(fp)
-                only_see_not_buy = True
-                for row in readCSV:
-                    print(row)
-                    action = row[4]
-                    if only_see_not_buy and int(action) == 2:
-                        only_see_not_buy = False
+        clean_action_path = os.path.join(self.CLEAN_PATH, 'jdata_action.csv')
+        actions = pd.read_csv(self.action_path)
+        # todo 清洗很久不上线的用户
+        actions = actions[['user_id', 'sku_id', 'type']]
+        df = pd.get_dummies(actions['type'], prefix='action')
+        actions = pd.concat([actions, df], axis=1)  # type: pd.DataFrame
+        actions = actions.groupby(['user_id', 'sku_id'], as_index=False).sum()
+        del actions['type']
+        actions = actions[actions['action_2'] > 0]
 
-    # 按天数划分
-    def day_div(self):
-        day_map = {}
-
-        with open(self.month_file, 'r')as fp:
-            readCSV = csv.reader(fp)
-            f_flag = True
-            for row in readCSV:
-                if f_flag:
-                    f_flag = False
-                    continue
-                date = row[2].split('-')
-                day_name = str(date[2]).split(' ')[0]
-                if day_name not in day_map:
-                    day_map[day_name] = [row]
-                else:
-                    day_map[day_name].append(row)
-
-        for day in day_map:
-            user_list = day_map[day]
-            user_file = os.path.join(self.USER_PATH, '2_' + str(day) + '.csv')
-            out_file = open(user_file, 'w', newline='')
-            csv_writer = csv.writer(out_file)
-            for row in user_list:
-                csv_writer.writerow(row)
-
-    # 天数购买量统计
-    def day_buy_sum(self):
-        pass
+        actions.to_csv(clean_action_path, index=False, index_label=False)
 
     def get_basic_user_feat(self):
-        dump_path = os.path.join(self.cache_path, 'basic_user.pkl')
+        dump_path = os.path.join(self.CACHE_PATH, 'basic_user.pkl')
         if os.path.exists(dump_path):
             user = pickle.load(open(dump_path, 'rb'))
         else:
@@ -234,7 +123,7 @@ class Datebase(object):
         return user
 
     def get_basic_product_feat(self):
-        dump_path = os.path.join(self.cache_path, 'basic_product.pkl')
+        dump_path = os.path.join(self.CACHE_PATH, 'basic_product.pkl')
         if os.path.exists(dump_path):
             product = pickle.load(open(dump_path, 'rb'))
         else:
@@ -246,18 +135,6 @@ class Datebase(object):
         # print(product.head(10))
         return product
 
-    def get_actions_1(self):
-        action = pd.read_csv(self.action_1_path)
-        return action
-
-    def get_actions_2(self):
-        action2 = pd.read_csv(self.action_2_path)
-        return action2
-
-    def get_actions_3(self):
-        action3 = pd.read_csv(self.action_3_path)
-        return action3
-
     def get_actions(self, start_date, end_date):
         """
         :param start_date:
@@ -265,14 +142,10 @@ class Datebase(object):
         :return: actions: pd.Dataframe
         """
         action_path = 'all_action_%s_%s.pkl' % (start_date, end_date)
-        dump_path = os.path.join(self.cache_path, action_path)
+        dump_path = os.path.join(self.CACHE_PATH, action_path)
         if os.path.exists(dump_path):
             actions = pickle.load(open(dump_path, 'rb'))
         else:
-            # action_1 = self.get_actions_1()
-            # action_2 = self.get_actions_2()
-            # action_3 = self.get_actions_3()
-            # actions = pd.concat([action_1, action_2, action_3])  # type: pd.DataFrame
             actions = pd.read_csv(self.action_path)
             actions = actions[(actions.action_time >= start_date) & (actions.action_time < end_date)]
             pickle.dump(actions, open(dump_path, 'wb'), protocol=4)
@@ -280,7 +153,7 @@ class Datebase(object):
 
     def get_action_feat(self, start_date, end_date):
         action_path = 'action_accumulate_%s_%s.pkl' % (start_date, end_date)
-        dump_path = os.path.join(self.cache_path, action_path)
+        dump_path = os.path.join(self.CACHE_PATH, action_path)
         if os.path.exists(dump_path):
             actions = pickle.load(open(dump_path, 'rb'))
         else:
@@ -297,7 +170,7 @@ class Datebase(object):
 
     def get_accumulate_action_feat(self, start_date, end_date):
         action_path = 'action_accumulate_%s_%s.pkl' % (start_date, end_date)
-        dump_path = os.path.join(self.cache_path, action_path)
+        dump_path = os.path.join(self.CACHE_PATH, action_path)
         if os.path.exists(dump_path):
             actions = pickle.load(open(dump_path, 'rb'))
         else:
@@ -324,31 +197,6 @@ class Datebase(object):
             pickle.dump(actions, open(dump_path, 'wb'), protocol=4)
         return actions
 
-    # def get_comments_product_feat(self, start_date, end_date):
-    #     action_path = 'comments_accumulate_%s_%s.pkl' % (start_date, end_date)
-    #     dump_path = os.path.join(self.cache_path, action_path)
-    #     if os.path.exists(dump_path):
-    #         comments = pickle.load(open(dump_path,'rb'))
-    #     else:
-    #         comments = pd.read_csv(self.comment_path)
-    #         comment_date_end = end_date
-    #         comment_date_begin = self.comment_date[0]
-    #         for date in reversed(self.comment_date):
-    #             if date < comment_date_end:
-    #                 comment_date_begin = date
-    #                 break
-    #         comments = comments[(comments.dt >= comment_date_begin) & (comments.dt < comment_date_end)]
-    #         comments['comments'] = comments['comments'].map()
-    #         df = pd.get_dummies(comments['comments'], prefix='comments')
-    #         comments = pd.concat([comments, df], axis=1)  # type: pd.DataFrame
-    #         # del comments['dt']
-    #         # del comments['comment_num']
-    #         comments = comments[
-    #             ['sku_id', 'has_bad_comment', 'bad_comment_rate', 'comment_num_1', 'comment_num_2', 'comment_num_3',
-    #              'comment_num_4']]
-    #         pickle.dump(comments, open(dump_path, 'wb'),protocol=4)
-    #     return comments
-
     def get_comments_product_feat(self, comment_date_begin, comment_date_end):
         comments = pd.read_csv(self.comment_path)
         comments = comments[(comments.dt >= comment_date_begin) & (comments.dt < comment_date_end)]
@@ -373,7 +221,7 @@ class Datebase(object):
         return dict
 
     def get_shop_product_feat(self):
-        dump_path = os.path.join(self.cache_path, 'basic_shop.pkl')
+        dump_path = os.path.join(self.CACHE_PATH, 'basic_shop.pkl')
         if os.path.exists(dump_path):
             shop = pickle.load(open(dump_path, 'rb'))
         else:
@@ -388,7 +236,7 @@ class Datebase(object):
         feature = ['user_id', 'user_action_1_ratio', 'user_action_3_ratio', 'user_action_4_ratio',
                    'user_action_5_ratio']
         file_name = 'user_feat_accumulate_%s_%s.pkl' % (start_date, end_date)
-        dump_path = os.path.join(self.cache_path, file_name)
+        dump_path = os.path.join(self.CACHE_PATH, file_name)
         if os.path.exists(dump_path):
             actions = pickle.load(open(dump_path, 'rb'))
         else:
@@ -409,7 +257,7 @@ class Datebase(object):
         feature = ['sku_id', 'product_action_1_ratio', 'product_action_3_ratio', 'product_action_4_ratio',
                    'product_action_5_ratio']
         file_name = 'product_feat_accumulate_%s_%s.pkl' % (start_date, end_date)
-        dump_path = os.path.join(self.cache_path, file_name)
+        dump_path = os.path.join(self.CACHE_PATH, file_name)
         if os.path.exists(dump_path):
             actions = pickle.load(open(dump_path, 'rb'))
         else:
@@ -428,7 +276,7 @@ class Datebase(object):
 
     def get_labels(self, start_date, end_date):
         label_name = 'labels_%s_%s.pkl' % (start_date, end_date)
-        dump_path = os.path.join(self.cache_path, label_name)
+        dump_path = os.path.join(self.CACHE_PATH, label_name)
         if os.path.exists(dump_path):
             actions = pickle.load(open(dump_path, 'rb'))
         else:
@@ -443,7 +291,7 @@ class Datebase(object):
 
     def make_test_set(self, train_start_date, train_end_date):
         test_name = 'test_set_%s_%s.pkl' % (train_start_date, train_end_date)
-        dump_path = os.path.join(self.cache_path, test_name)
+        dump_path = os.path.join(self.CACHE_PATH, test_name)
         if os.path.exists(dump_path):
             actions = pickle.load(open(dump_path, 'rb'))
         else:
@@ -487,7 +335,7 @@ class Datebase(object):
 
     def make_train_set(self, train_start_date, train_end_date, test_start_date, test_end_date, days=30):
         train_name = 'train_set_%s_%s_%s_%s.pkl' % (train_start_date, train_end_date, test_start_date, test_end_date)
-        dump_path = os.path.join(self.cache_path, train_name)
+        dump_path = os.path.join(self.CACHE_PATH, train_name)
         if os.path.exists(dump_path):
             actions = pickle.load(open(dump_path, 'rb'))
         else:
