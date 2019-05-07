@@ -23,10 +23,10 @@ def xgboost_make_submission():
                                                         random_state=0)
     dtrain = xgb.DMatrix(X_train, label=y_train)
     dtest = xgb.DMatrix(X_test, label=y_test)
-    param = {'learning_rate': 0.01, 'n_estimators': 1000, 'max_depth': 3,
-             'min_child_weight': 5, 'gamma': 0, 'subsample': 1.0, 'colsample_bytree': 0.8,
-             'scale_pos_weight': 1, 'eta': 0.3, 'silent': 1, 'objective': 'binary:logistic'}
-    num_round = 400
+    param = {'learning_rate': 0.02, 'n_estimators': 1000, 'max_depth': 8,
+             'min_child_weight': 5, 'gamma': 0.025, 'subsample': 0.7, 'colsample_bytree': 0.6,
+             'scale_pos_weight': 4, 'eta': 0.1, 'silent': 1, 'objective': 'binary:logistic'}
+    num_round = 500
     param['nthread'] = 4
     param['eval_metric'] = "auc"
     plst = list(param.items())
@@ -39,10 +39,11 @@ def xgboost_make_submission():
     sub_user_index['label'] = y
     # sub_user_index.to_csv('./sub_user_index.csv', index=False, index_label=False)
     pred = sub_user_index[sub_user_index['label'] >= 0.03]
-    pred = pred[['user_id', 'sku_id']]
+    pred = pred[['user_id', 'cate', 'shop_id']]
     pred = pred.groupby('user_id').first().reset_index()
     pred['user_id'] = pred['user_id'].astype(int)
-    # pred.to_csv('./submission.csv', index=False, index_label=False)
+    pred['cate'] = pred['cate'].astype(int)
+    pred['shop_id'] = pred['shop_id'].astype(int)
     data.save_pred(pred)
 
 

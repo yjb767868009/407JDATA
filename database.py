@@ -290,6 +290,7 @@ class Datebase(object):
         return actions
 
     def make_test_set(self, train_start_date, train_end_date):
+        print('start to create test set')
         test_name = 'test_set_%s_%s.pkl' % (train_start_date, train_end_date)
         dump_path = os.path.join(self.CACHE_PATH, test_name)
         if os.path.exists(dump_path):
@@ -324,16 +325,18 @@ class Datebase(object):
             actions = pd.merge(actions, comment_acc, how='left', on='sku_id')
             # actions = pd.merge(actions, labels, how='left', on=['user_id', 'sku_id'])
             actions = actions.fillna(0)
-            # actions = actions[actions['cate'] == 8]
-        print('create test set')
+        print('end to create test set')
         # actions.to_csv('./test_actions.csv', index=False, index_label=False)
 
-        users = actions[['user_id', 'sku_id']].copy()
+        users = actions[['user_id', 'cate', 'shop_id']].copy()
         del actions['user_id']
+        del actions['cate']
         del actions['sku_id']
+        del actions['shop_id']
         return users, actions
 
     def make_train_set(self, train_start_date, train_end_date, test_start_date, test_end_date, days=30):
+        print('start to create train set')
         train_name = 'train_set_%s_%s_%s_%s.pkl' % (train_start_date, train_end_date, test_start_date, test_end_date)
         dump_path = os.path.join(self.CACHE_PATH, train_name)
         if os.path.exists(dump_path):
@@ -369,11 +372,13 @@ class Datebase(object):
             actions = pd.merge(actions, labels, how='left', on=['user_id', 'sku_id'])
             actions = actions.fillna(0)
 
-        print('create train set')
+        print('end to create train set')
         # actions.to_csv('./train_actions.csv', index=False, index_label=False)
-        users = actions[['user_id', 'sku_id']].copy()
+        users = actions[['user_id', 'cate', 'shop_id']].copy()
         labels = actions['label'].copy()
         del actions['user_id']
+        del actions['cate']
+        del actions['shop_id']
         del actions['sku_id']
         del actions['label']
 
@@ -425,16 +430,6 @@ class Datebase(object):
 
     def save_pred(self, pred):
         pred_path = os.path.join(self.DATA_ROOT, 'sub', 'submission.csv')
-        product = product = pd.read_csv(self.product_path)
-        del product['brand']
-        del product['market_time']
-        pred = pd.merge(pred, product, how='left', on='sku_id')
-        del pred['sku_id']
-        pred = pred.dropna()
-        pred['cate'] = pred['cate'].astype(int)
-        pred['shop_id'] = pred['shop_id'].astype(int)
-        column_titles = ['user_id', 'cate', 'shop_id']
-        pred = pred.reindex(columns=column_titles)
         pred.to_csv(pred_path, index=False, index_label=False)
 
 
