@@ -224,14 +224,45 @@ class Datebase(object):
         return dict
 
     def get_shop_product_feat(self):
+        def convert_vip_fans(number):
+            if number < 1:
+                return 1
+            elif number <= 10:
+                return 2
+            elif number <= 1000:
+                return 3
+            elif number <= 100000:
+                return 4
+            else:
+                return 5
+
+        def convert_score(number):
+            if number < 0:
+                return 1
+            elif number < 1:
+                return 2
+            elif number < 9:
+                return 3
+            elif number < 9.5:
+                return 4
+            else:
+                return 5
+
         dump_path = os.path.join(self.CACHE_PATH, 'basic_shop.pkl')
         if os.path.exists(dump_path):
             shop = pickle.load(open(dump_path, 'rb'))
         else:
             shop = pd.read_csv(self.shop_path)
             # shop = shop['shop_id', 'fans_num', 'vip_num', 'shop_reg_tm', 'shop_socre']
-            del shop['shop_reg_tm']
-            del shop['cate']
+            # del shop['shop_reg_tm']
+            # del shop['cate']
+            shop['fans_num'] = shop['fans_num'].map(convert_vip_fans)
+            shop['vip_num'] = shop['vip_num'].map(convert_vip_fans)
+            shop['shop_score'] = shop['shop_score'].map(convert_score)
+            fans_df = pd.get_dummies(shop['fans_num'], prefix='fans_num')
+            vip_df = pd.get_dummies(shop['vip_num'], prefix='vip_num')
+            score_df = pd.get_dummies(shop['shop_score'], prefix='shop_score')
+            shop = pd.concat([shop['shop_id'], fans_df, vip_df, score_df], axis=1)
             pickle.dump(shop, open(dump_path, 'wb'), protocol=4)
         return shop
 
@@ -377,7 +408,7 @@ class Datebase(object):
             actions = actions.fillna(0)
 
         print('end to create train set')
-        actions.to_csv('./train_actions_2.csv', index=False, index_label=False)
+        actions.to_csv('./train_actions_3.csv', index=False, index_label=False)
         users = actions[['user_id', 'cate', 'shop_id']].copy()
         labels = actions['label'].copy()
         del actions['user_id']
