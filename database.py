@@ -117,7 +117,10 @@ class Datebase(object):
             # user = pd.concat([user['user_id'], age_df, sex_df, user_lv_df, province_df, city_df, county_df], axis=1)
             # pickle.dump(user, open(dump_path, 'wb'), protocol=4)
             user = pd.read_csv(self.user_path, encoding='gbk')
-            del user['user_reg_tm']
+            age_df = pd.get_dummies(user["age"], prefix="age")
+            user_lv_df = pd.get_dummies(user["user_lv_cd"], prefix="user_lv_cd")
+            city_level_df = pd.get_dummies(user["city_level"], prefix="city_level")
+            user = pd.concat([user['user_id'], user['sex'], age_df, user_lv_df, city_level_df], axis=1)
             pickle.dump(user, open(dump_path, 'wb'), protocol=4)
         # print(user.head(10))
         return user
@@ -325,6 +328,7 @@ class Datebase(object):
             actions = pd.merge(actions, comment_acc, how='left', on='sku_id')
             # actions = pd.merge(actions, labels, how='left', on=['user_id', 'sku_id'])
             actions = actions.fillna(0)
+            # actions = actions[actions['cate'] == 8]
         print('end to create test set')
         # actions.to_csv('./test_actions.csv', index=False, index_label=False)
 
@@ -373,7 +377,7 @@ class Datebase(object):
             actions = actions.fillna(0)
 
         print('end to create train set')
-        # actions.to_csv('./train_actions.csv', index=False, index_label=False)
+        actions.to_csv('./train_actions_2.csv', index=False, index_label=False)
         users = actions[['user_id', 'cate', 'shop_id']].copy()
         labels = actions['label'].copy()
         del actions['user_id']
@@ -432,7 +436,36 @@ class Datebase(object):
         pred_path = os.path.join(self.DATA_ROOT, 'sub', 'submission.csv')
         pred.to_csv(pred_path, index=False, index_label=False)
 
+    # 创建特征和购买的关系
+    def feature_buy_relationship(self):
+        feature_name = 'city_level'
+        user = self.get_basic_user_feat()
+        user = user[['user_id', feature_name]]
+        user = user.fillna(0)
+        user[feature_name] = user[feature_name].astype(int)
+        print(user.head(10))
+
+        actions = pd.read_csv(self.action_path)
+        actions = actions[['user_id', 'type']]
+        df = pd.get_dummies(actions['type'], prefix='action')
+        actions = pd.concat([actions, df], axis=1)  # type: pd.DataFrame
+        actions = actions.groupby(['user_id'], as_index=False).sum()
+        actions = actions[['user_id', 'action_2']]
+        actions['action_2'] = actions['action_2'].astype(int)
+        print(actions.head(10))
+
+        feature_relationship = pd.merge(user, actions, how='left', on='user_id')
+        feature_relationship = feature_relationship[[feature_name, 'action_2']]
+        feature_relationship['num'] = 1
+        feature_relationship = feature_relationship.groupby([feature_name, 'action_2'], as_index=False).sum()
+        feature_relationship.to_csv('feature_relationship.csv', index=False, index_label=False)
+
+    def test(self):
+        actions = pd.read_csv(self.action_path)
+        actions = actions[actions['type'] == 2]
+        actions.to_csv('jdata_action_2.csv', index=False, index_label=False)
+
 
 if __name__ == '__main__':
     d = Datebase()
-    d.get_labels('2018-04-08', '2018-04-15')
+    d.test()

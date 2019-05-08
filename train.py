@@ -23,9 +23,9 @@ def xgboost_make_submission():
                                                         random_state=0)
     dtrain = xgb.DMatrix(X_train, label=y_train)
     dtest = xgb.DMatrix(X_test, label=y_test)
-    param = {'learning_rate': 0.02, 'n_estimators': 1000, 'max_depth': 8,
-             'min_child_weight': 5, 'gamma': 0.025, 'subsample': 0.7, 'colsample_bytree': 0.6,
-             'scale_pos_weight': 4, 'eta': 0.1, 'silent': 1, 'objective': 'binary:logistic'}
+    param = {'learning_rate': 0.01, 'n_estimators': 1000, 'max_depth': 3,
+             'min_child_weight': 5, 'gamma': 0, 'subsample': 1.0, 'colsample_bytree': 0.8,
+             'scale_pos_weight': 1, 'eta': 0.3, 'silent': 1, 'objective': 'binary:logistic'}
     num_round = 500
     param['nthread'] = 4
     param['eval_metric'] = "auc"
