@@ -253,16 +253,15 @@ class Datebase(object):
             shop = pickle.load(open(dump_path, 'rb'))
         else:
             shop = pd.read_csv(self.shop_path)
-            # shop = shop['shop_id', 'fans_num', 'vip_num', 'shop_reg_tm', 'shop_socre']
-            # del shop['shop_reg_tm']
-            # del shop['cate']
-            shop['fans_num'] = shop['fans_num'].map(convert_vip_fans)
-            shop['vip_num'] = shop['vip_num'].map(convert_vip_fans)
-            shop['shop_score'] = shop['shop_score'].map(convert_score)
-            fans_df = pd.get_dummies(shop['fans_num'], prefix='fans_num')
-            vip_df = pd.get_dummies(shop['vip_num'], prefix='vip_num')
-            score_df = pd.get_dummies(shop['shop_score'], prefix='shop_score')
-            shop = pd.concat([shop['shop_id'], fans_df, vip_df, score_df], axis=1)
+            del shop['shop_reg_tm']
+            del shop['cate']
+            # shop['fans_num'] = shop['fans_num'].map(convert_vip_fans)
+            # shop['vip_num'] = shop['vip_num'].map(convert_vip_fans)
+            # shop['shop_score'] = shop['shop_score'].map(convert_score)
+            # fans_df = pd.get_dummies(shop['fans_num'], prefix='fans_num')
+            # vip_df = pd.get_dummies(shop['vip_num'], prefix='vip_num')
+            # score_df = pd.get_dummies(shop['shop_score'], prefix='shop_score')
+            # shop = pd.concat([shop['shop_id'], fans_df, vip_df, score_df], axis=1)
             pickle.dump(shop, open(dump_path, 'wb'), protocol=4)
         return shop
 
@@ -308,6 +307,31 @@ class Datebase(object):
         # print(actions.head(10))
         return actions
 
+    # 商店的用户行为转化比，增加后效果变差
+    def get_accumulate_shop_feat(self, start_date, end_date):
+        feature = ['shop_id', 'shop_action_1_ratio', 'shop_action_3_ratio', 'shop_action_4_ratio',
+                   'shop_action_5_ratio']
+        file_name = 'shop_feat_accumulate_%s_%s.pkl' % (start_date, end_date)
+        dump_path = os.path.join(self.CACHE_PATH, file_name)
+        if os.path.exists(dump_path):
+            actions = pickle.load(open(dump_path, 'rb'))
+        else:
+            actions = self.get_actions(start_date, end_date)
+            products = self.get_basic_product_feat()
+            products = products[['sku_id', 'shop_id']]
+            actions = pd.merge(actions, products, how='left', on='sku_id')
+            df = pd.get_dummies(actions['type'], prefix='action')
+            actions = pd.concat([actions['shop_id'], df], axis=1)
+            actions = actions.groupby(['shop_id'], as_index=False).sum()
+            actions['shop_action_1_ratio'] = actions['action_2'] / actions['action_1']
+            actions['shop_action_3_ratio'] = actions['action_2'] / actions['action_3']
+            actions['shop_action_4_ratio'] = actions['action_2'] / actions['action_4']
+            actions['shop_action_5_ratio'] = actions['action_2'] / actions['action_5']
+            actions = actions[feature]
+            pickle.dump(actions, open(dump_path, 'wb'), protocol=4)
+        # print(actions.head(10))
+        return actions
+
     def get_labels(self, start_date, end_date):
         label_name = 'labels_%s_%s.pkl' % (start_date, end_date)
         dump_path = os.path.join(self.CACHE_PATH, label_name)
@@ -334,6 +358,7 @@ class Datebase(object):
             user = self.get_basic_user_feat()
             product = self.get_basic_product_feat()
             shop = self.get_shop_product_feat()
+            # shop_acc = self.get_accumulate_shop_feat(start_days, train_end_date)
             user_acc = self.get_accumulate_user_feat(start_days, train_end_date)
             product_acc = self.get_accumulate_product_feat(start_days, train_end_date)
             comment_acc = self.get_comments_product_feat(train_start_date, train_end_date)
@@ -354,6 +379,7 @@ class Datebase(object):
             actions = pd.merge(actions, user, how='left', on='user_id')
             actions = pd.merge(actions, user_acc, how='left', on='user_id')
             product = pd.merge(product, shop, how='left', on='shop_id')
+            # product = pd.merge(product, shop_acc, how='left', on='shop_id')
             actions = pd.merge(actions, product, how='left', on='sku_id')
             actions = pd.merge(actions, product_acc, how='left', on='sku_id')
             actions = pd.merge(actions, comment_acc, how='left', on='sku_id')
@@ -381,6 +407,7 @@ class Datebase(object):
             user = self.get_basic_user_feat()
             product = self.get_basic_product_feat()
             shop = self.get_shop_product_feat()
+            # shop_acc = self.get_accumulate_shop_feat(start_days, train_end_date)
             user_acc = self.get_accumulate_user_feat(start_days, train_end_date)
             product_acc = self.get_accumulate_product_feat(start_days, train_end_date)
             comment_acc = self.get_comments_product_feat(train_start_date, train_end_date)
@@ -401,6 +428,7 @@ class Datebase(object):
             actions = pd.merge(actions, user, how='left', on='user_id')
             actions = pd.merge(actions, user_acc, how='left', on='user_id')
             product = pd.merge(product, shop, how='left', on='shop_id')
+            # product = pd.merge(product, shop_acc, how='left', on='shop_id')
             actions = pd.merge(actions, product, how='left', on='sku_id')
             actions = pd.merge(actions, product_acc, how='left', on='sku_id')
             actions = pd.merge(actions, comment_acc, how='left', on='sku_id')
@@ -408,7 +436,7 @@ class Datebase(object):
             actions = actions.fillna(0)
 
         print('end to create train set')
-        actions.to_csv('./train_actions_3.csv', index=False, index_label=False)
+        # actions.to_csv('./train_actions_3.csv', index=False, index_label=False)
         users = actions[['user_id', 'cate', 'shop_id']].copy()
         labels = actions['label'].copy()
         del actions['user_id']
