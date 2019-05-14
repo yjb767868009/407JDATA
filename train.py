@@ -1,9 +1,11 @@
 import os
+import pandas as pd
 
 from sklearn.model_selection import train_test_split
 import xgboost as xgb
 from database import Datebase
 from matplotlib import pyplot as plt
+import operator
 
 
 def xgboost_make_submission():
@@ -14,7 +16,7 @@ def xgboost_make_submission():
     test_start_date = '2018-04-09'
     test_end_date = '2018-04-16'
 
-    sub_start_date = '2018-02-08'
+    sub_start_date = '2018-03-15'
     sub_end_date = '2018-04-16'
 
     user_index, training_data, label = data.make_train_set(train_start_date, train_end_date, test_start_date,
@@ -23,10 +25,20 @@ def xgboost_make_submission():
                                                         random_state=0)
     dtrain = xgb.DMatrix(X_train, label=y_train)
     dtest = xgb.DMatrix(X_test, label=y_test)
-    param = {'learning_rate': 0.01, 'n_estimators': 1000, 'max_depth': 3,
-             'min_child_weight': 5, 'gamma': 0, 'subsample': 1.0, 'colsample_bytree': 0.8,
-             'scale_pos_weight': 1, 'eta': 0.3, 'silent': 1, 'objective': 'binary:logistic'}
-    num_round = 500
+    param = {'learning_rate': 0.05,
+             'n_estimators': 1000,
+             'max_depth': 3,
+             'min_child_weight': 5,
+             'gamma': 0,
+             'subsample': 1.0,
+             'colsample_bytree': 0.6,
+             'scale_pos_weight': 1,
+             'eta': 0.3,
+             'silent': 1,
+             'objective': 'binary:logistic'
+             }
+
+    num_round = 528
     param['nthread'] = 4
     param['eval_metric'] = "auc"
     plst = list(param.items())
@@ -45,6 +57,21 @@ def xgboost_make_submission():
     pred['cate'] = pred['cate'].astype(int)
     pred['shop_id'] = pred['shop_id'].astype(int)
     data.save_pred(pred)
+
+    outfile = open('xgb.fmap', 'w')
+    features = training_data.columns.values.tolist()
+    i = 0
+    for feat in features:
+        outfile.write('{0}\t{1}\tq\n'.format(i, feat))
+        i = i + 1
+
+    outfile.close()
+
+    importance = bst.get_fscore(fmap='xgb.fmap')
+    importance = sorted(importance.items(), key=operator.itemgetter(1))
+    df = pd.DataFrame(importance, columns=['feature', 'fscore'])
+    df['fscore'] = df['fscore'] / df['fscore'].sum()
+    df.to_csv('test.csv', index=False, index_label=False)
 
 
 if __name__ == '__main__':

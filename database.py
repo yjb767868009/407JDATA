@@ -263,6 +263,7 @@ class Datebase(object):
             # score_df = pd.get_dummies(shop['shop_score'], prefix='shop_score')
             # shop = pd.concat([shop['shop_id'], fans_df, vip_df, score_df], axis=1)
             pickle.dump(shop, open(dump_path, 'wb'), protocol=4)
+        shop.to_csv('shop.csv', index=False, index_label=False)
         return shop
 
     def get_accumulate_user_feat(self, start_date, end_date):
@@ -363,6 +364,7 @@ class Datebase(object):
             product_acc = self.get_accumulate_product_feat(start_days, train_end_date)
             comment_acc = self.get_comments_product_feat(train_start_date, train_end_date)
             # labels = self.get_labels(train_start_date, train_end_date)
+            repeat_product=self.get_repeat_product()
 
             # generate 时间窗口
             # actions = get_accumulate_action_feat(train_start_date, train_end_date)
@@ -379,6 +381,7 @@ class Datebase(object):
             actions = pd.merge(actions, user, how='left', on='user_id')
             actions = pd.merge(actions, user_acc, how='left', on='user_id')
             product = pd.merge(product, shop, how='left', on='shop_id')
+            product = pd.merge(product, repeat_product, how='left', on='sku_id')
             # product = pd.merge(product, shop_acc, how='left', on='shop_id')
             actions = pd.merge(actions, product, how='left', on='sku_id')
             actions = pd.merge(actions, product_acc, how='left', on='sku_id')
@@ -412,6 +415,7 @@ class Datebase(object):
             product_acc = self.get_accumulate_product_feat(start_days, train_end_date)
             comment_acc = self.get_comments_product_feat(train_start_date, train_end_date)
             labels = self.get_labels(test_start_date, test_end_date)
+            repeat_product=self.get_repeat_product()
 
             # generate 时间窗口
             # actions = get_accumulate_action_feat(train_start_date, train_end_date)
@@ -428,6 +432,7 @@ class Datebase(object):
             actions = pd.merge(actions, user, how='left', on='user_id')
             actions = pd.merge(actions, user_acc, how='left', on='user_id')
             product = pd.merge(product, shop, how='left', on='shop_id')
+            product = pd.merge(product, repeat_product, how='left', on='sku_id')
             # product = pd.merge(product, shop_acc, how='left', on='shop_id')
             actions = pd.merge(actions, product, how='left', on='sku_id')
             actions = pd.merge(actions, product_acc, how='left', on='sku_id')
@@ -436,7 +441,7 @@ class Datebase(object):
             actions = actions.fillna(0)
 
         print('end to create train set')
-        # actions.to_csv('./train_actions_3.csv', index=False, index_label=False)
+        actions.to_csv('./train_actions_4.csv', index=False, index_label=False)
         users = actions[['user_id', 'cate', 'shop_id']].copy()
         labels = actions['label'].copy()
         del actions['user_id']
@@ -495,36 +500,17 @@ class Datebase(object):
         pred_path = os.path.join(self.DATA_ROOT, 'sub', 'submission.csv')
         pred.to_csv(pred_path, index=False, index_label=False)
 
-    # 创建特征和购买的关系
-    def feature_buy_relationship(self):
-        feature_name = 'city_level'
-        user = self.get_basic_user_feat()
-        user = user[['user_id', feature_name]]
-        user = user.fillna(0)
-        user[feature_name] = user[feature_name].astype(int)
-        print(user.head(10))
-
-        actions = pd.read_csv(self.action_path)
-        actions = actions[['user_id', 'type']]
-        df = pd.get_dummies(actions['type'], prefix='action')
-        actions = pd.concat([actions, df], axis=1)  # type: pd.DataFrame
-        actions = actions.groupby(['user_id'], as_index=False).sum()
-        actions = actions[['user_id', 'action_2']]
-        actions['action_2'] = actions['action_2'].astype(int)
-        print(actions.head(10))
-
-        feature_relationship = pd.merge(user, actions, how='left', on='user_id')
-        feature_relationship = feature_relationship[[feature_name, 'action_2']]
-        feature_relationship['num'] = 1
-        feature_relationship = feature_relationship.groupby([feature_name, 'action_2'], as_index=False).sum()
-        feature_relationship.to_csv('feature_relationship.csv', index=False, index_label=False)
-
-    def test(self):
-        actions = pd.read_csv(self.action_path)
-        actions = actions[actions['type'] == 2]
-        actions.to_csv('jdata_action_2.csv', index=False, index_label=False)
+    def get_repeat_product(self):
+        # dump_path = os.path.join(self.CACHE_PATH, 'repeat_purchase.pkl')
+        # if os.path.exists(dump_path):
+        #     repeat_product = pickle.load(open(dump_path, 'rb'))
+        # else:
+        repeat_product = pd.read_csv(os.path.join(self.DATA_ROOT, 'repeat_purchase.csv'))
+        repeat_product['repeat_buy'] = repeat_product['repeat_num'] / repeat_product['user_num']
+        repeat_product = repeat_product[['sku_id', 'repeat_buy']]
+        return repeat_product
 
 
 if __name__ == '__main__':
     d = Datebase()
-    d.test()
+    d.get_repeat_product()
